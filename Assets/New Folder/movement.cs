@@ -2,92 +2,71 @@ using UnityEngine;
 
 [RequireComponent(typeof(CharacterController))]
 
-public class MovementScript : MonoBehaviour
-
+public class SC_CharacterController : MonoBehaviour
 {
+    public float speed = 7.5f;
+    public float jumpSpeed = 8.0f;
+    public float gravity = 20.0f;
+    public Camera playerCamera;
+    public float lookSpeed = 2.0f;
+    public float lookXLimit = 45.0f;
 
-    public float MoveSpeed = 5.0f;
+    CharacterController characterController;
+    Vector3 moveDirection = Vector3.zero;
+    Vector2 rotation = new Vector2(Screen.width / 2, Screen.height / 2);
 
-    public float JumpHeight = 2.0f;
-
-    public float gravity = -9.81f;
-
-    private CharacterController controller;
-
-    private Vector3 velocity;
-
-    private bool isGrounded;
-
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
+    [HideInInspector]
+    public bool canMove = true;
 
     void Start()
-
     {
-
-        controller = GetComponent<CharacterController>();
-
+        characterController = GetComponent<CharacterController>();
+        rotation.y = transform.eulerAngles.y;
     }
-
-    // Update is called once per frame
 
     void Update()
-
     {
-
-        ConsistentDownwardVelocity();
-
-        MoveCharacter();
-
-        HandleJumping();
-
-    }
-
-    void MoveCharacter()
-
-    {
-
-        float moveX = Input.GetAxis("Horizontal");
-
-        float moveZ = Input.GetAxis("Vertical");
-
-        Vector3 move = transform.right * moveX + transform.forward * moveZ;
-
-        controller.Move(move * MoveSpeed * Time.deltaTime);
-
-    }
-
-    void ConsistentDownwardVelocity()
-
-    {
-
-        isGrounded = controller.isGrounded;
-
-        if (isGrounded && velocity.y < 0f)
-
+        if (characterController.isGrounded)
         {
+            // We are grounded, so recalculate move direction based on axes
+            Vector3 forward = transform.TransformDirection(Vector3.forward);
+            Vector3 right = transform.TransformDirection(Vector3.right);
+            float curSpeedX = canMove ? speed * Input.GetAxis("Vertical") : 0;
+            float curSpeedY = canMove ? speed * Input.GetAxis("Horizontal") : 0;
+            moveDirection = (forward * curSpeedX) + (right * curSpeedY);
 
-            velocity.y = -2f;
-
+            if (Input.GetButton("Jump") && canMove)
+            {
+                moveDirection.y = jumpSpeed;
+            }
         }
 
-    }
-
-    void HandleJumping()
-
-    {
-
-        if (Input.GetButtonDown("Jump") && isGrounded)
-
+        /*
+        else 
         {
-
-            velocity.y = Mathf.Sqrt(JumpHeight * -2.0f * gravity);
-
+            if (Input.GetButtonDown("Jump") && canMove)
+            {
+                Debug.Log("Double jump");
+            }
         }
+        */
 
-        velocity.y += gravity * Time.deltaTime;
+        // Apply gravity. Gravity is multiplied by deltaTime twice (once here, and once below
+        // when the moveDirection is multiplied by deltaTime). This is because gravity should be applied
+        // as an acceleration (ms^-2)
+        moveDirection.y -= gravity * Time.deltaTime;
 
-        controller.Move(velocity * Time.deltaTime);
+        // Move the controller
+        characterController.Move(moveDirection * Time.deltaTime);
 
+        // Player and Camera rotation
+        if (canMove)
+        {
+            rotation.y += Input.GetAxis("Mouse X") * lookSpeed;
+            rotation.x += -Input.GetAxis("Mouse Y") * lookSpeed;
+            rotation.x = Mathf.Clamp(rotation.x, -lookXLimit, lookXLimit);
+            playerCamera.transform.localRotation = Quaternion.Euler(rotation.x, 0, 0);
+            transform.eulerAngles = new Vector2(0, rotation.y);
+        }
     }
-
 }
